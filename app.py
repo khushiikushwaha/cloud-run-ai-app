@@ -1,8 +1,10 @@
 import streamlit as st
 from google import genai
 import os
+from pypdf import PdfReader
+import time
 
-st.set_page_config(page_title="AI Study Hub", page_icon="🎓", layout="centered")
+st.set_page_config(page_title="Smart AI Study Hub", page_icon="🎓", layout="centered")
 
 st.title("🎓 Smart AI Study Hub")
 st.caption("Custom study tools designed for fast exam preparation & active recall.")
@@ -21,29 +23,53 @@ mode = st.selectbox(
     ]
 )
 
-user_text = st.text_area("Paste your topic, syllabus, or lecture notes here:", height=150)
+# Input method tabs
+tab_text, tab_file = st.tabs(["✍️ Paste Text", "📄 Upload PDF Notes"])
+
+with tab_text:
+    pasted_text = st.text_area("Paste your topic, syllabus, or lecture notes:", height=150)
+
+with tab_file:
+    uploaded_file = st.file_uploader("Upload your lecture slide or notes (PDF):", type=["pdf"])
+
+# Extract content
+final_text = ""
+if uploaded_file is not None:
+    try:
+        reader = PdfReader(uploaded_file)
+        pdf_content = ""
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                pdf_content += text + "\n"
+        final_text = pdf_content
+        st.success(f"PDF loaded successfully! ({len(reader.pages)} pages)")
+    except Exception as err:
+        st.error(f"Error reading PDF: {err}")
+else:
+    final_text = pasted_text
 
 if st.button("Generate Study Material"):
     if not client:
-        st.error("API Key is not configured!")
-    elif not user_text.strip():
-        st.warning("Please enter some text or topic first.")
+        st.error("API Key is not configured in Secrets!")
+    elif not final_text.strip():
+        st.warning("Please paste some text or upload a PDF first.")
     else:
-        # Custom prompt engineering based on mode
+        # Prompt tuning
         if mode == "⚡ Quick Summary & Key Takeaways":
-            prompt = f"Provide a concise summary, bullet points, and key takeaways for this content:\n\n{user_text}"
+            prompt = f"Provide a concise summary, bullet points, and key takeaways for this content:\n\n{final_text}"
         elif mode == "📝 Exam Cheat Sheet (Definitions, Formulas & Key Points)":
             prompt = (
                 "Format this into a high-yield Exam Cheat Sheet with: "
                 "1. Core Definitions (1-2 lines each), 2. Essential Formulas/Rules, "
                 "3. Crucial High-Yield Points to remember for exams:\n\n"
-                f"{user_text}"
+                f"{final_text}"
             )
         elif mode == "💡 Explain Like I'm 10 (Simple Real-life Analogies)":
             prompt = (
                 "Explain the following concept in extremely simple terms using vivid real-life analogies, "
                 "easy language, and zero complex jargon:\n\n"
-                f"{user_text}"
+                f"{final_text}"
             )
         else:
             prompt = (
@@ -51,15 +77,28 @@ if st.button("Generate Study Material"):
                 "Format strictly as pairs like:\n"
                 "Q: [Question here]\n"
                 "A: [Clear concise answer here]\n\n"
-                f"{user_text}"
+                f"{final_text}"
             )
 
         with st.spinner("Generating your study material..."):
-            try:
-                response = client.models.generate_content(
-                    model="gemini-3.6-flash",
-                    contents=prompt
-                )
+            response = None
+            # Retry loop for 503 high-demand spikes
+            for attempt in range(2):
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-3.6-flash",
+                        contents=prompt
+                    )
+                    break
+                except Exception as e:
+                    if "503" in str(e) and attempt == 0:
+                        time.sleep(2)
+                        continue
+                    else:
+                        st.error(f"Error details: {e}")
+                        break
+
+            if response and hasattr(response, "text"):
                 output_text = response.text
 
                 # Display Logic
@@ -88,7 +127,4 @@ if st.button("Generate Study Material"):
                     file_name="study_notes.txt",
                     mime="text/plain"
                 )
-
-            except Exception as e:
-                st.error(f"Error details: {e}")
                 
