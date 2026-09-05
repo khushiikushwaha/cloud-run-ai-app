@@ -3,6 +3,8 @@ from google import genai
 import os
 from pypdf import PdfReader
 import time
+from gtts import gTTS
+import io
 
 st.set_page_config(page_title="Smart AI Study Hub", page_icon="🎓", layout="centered")
 
@@ -55,7 +57,6 @@ if st.button("Generate Study Material"):
     elif not final_text.strip():
         st.warning("Please paste some text or upload a PDF first.")
     else:
-        # Prompt tuning
         if mode == "⚡ Quick Summary & Key Takeaways":
             prompt = f"Provide a concise summary, bullet points, and key takeaways for this content:\n\n{final_text}"
         elif mode == "📝 Exam Cheat Sheet (Definitions, Formulas & Key Points)":
@@ -82,7 +83,6 @@ if st.button("Generate Study Material"):
 
         with st.spinner("Generating your study material..."):
             response = None
-            # Retry loop for 503 high-demand spikes
             for attempt in range(2):
                 try:
                     response = client.models.generate_content(
@@ -101,7 +101,7 @@ if st.button("Generate Study Material"):
             if response and hasattr(response, "text"):
                 output_text = response.text
 
-                # Display Logic
+                # Display Output
                 if mode == "🗂️ Interactive Flashcards (Click to Reveal Answers)":
                     st.subheader("🗂️ Flashcards (Tap to reveal):")
                     cards = output_text.split("Q:")
@@ -120,11 +120,36 @@ if st.button("Generate Study Material"):
                     st.subheader("Output:")
                     st.markdown(output_text)
 
-                # Download Button
-                st.download_button(
-                    label="📥 Download Notes as TXT",
-                    data=output_text,
-                    file_name="study_notes.txt",
-                    mime="text/plain"
-                )
-                
+                # Audio Revision Player
+                try:
+                    clean_audio_text = output_text.replace("#", "").replace("*", "").strip()
+                    tts = gTTS(text=clean_audio_text[:1000], lang='en')
+                    audio_bytes = io.BytesIO()
+                    tts.write_to_fp(audio_bytes)
+                    audio_bytes.seek(0)
+                    st.write("---")
+                    st.subheader("🎧 Listen to Revision Audio:")
+                    st.audio(audio_bytes, format="audio/mp3")
+                except Exception:
+                    pass
+
+                # Download Buttons
+                st.write("---")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.download_button(
+                        label="📥 Download as TXT",
+                        data=output_text,
+                        file_name="study_notes.txt",
+                        mime="text/plain",
+                        use_container_width=True
+                    )
+                with col2:
+                    st.download_button(
+                        label="📑 Download as Markdown",
+                        data=output_text,
+                        file_name="study_notes.md",
+                        mime="text/markdown",
+                        use_container_width=True
+                    )
+                    
