@@ -17,10 +17,13 @@ if st.button("Generate Summary & Key Points"):
         st.warning("Please enter some text first.")
     else:
         prompt = f"Explain this clearly in simple bullet points and key takeaways:\n\n{user_text}"
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
-        st.subheader("Your AI Summary:")
-        st.write(response.text)
-      
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            st.subheader("Your AI Summary:")
+            st.write(response.text)
+        except Exception as e:
+            st.error(f"Error details: {e}")
+            
