@@ -19,7 +19,8 @@ if st.button("Generate Summary & Key Points"):
         prompt = f"Explain this clearly in simple bullet points and key takeaways:\n\n{user_text}"
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.6-flash",
+                
                 contents=prompt
             )
             st.subheader("Your AI Summary:")
