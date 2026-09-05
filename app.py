@@ -5,7 +5,7 @@ import os
 st.set_page_config(page_title="AI Study Helper", page_icon="📚")
 st.title("📚 Quick AI Study Assistant")
 
-api_key = os.environ.get("GEMINI_API_KEY")
+api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key else None
 
 user_text = st.text_area("Paste your topic or study notes here:", height=150)
